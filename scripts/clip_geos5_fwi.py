@@ -4,15 +4,15 @@ from pathlib import Path
 import sys
 
 import numpy as np
+from netCDF4 import Dataset
 import rasterio
 from rasterio.transform import from_origin
 from rasterio.mask import mask
 import geopandas as gpd
-from netCDF4 import Dataset
 
 
 # ============================================================
-# CONFIGURATION
+# SETTINGS
 # ============================================================
 
 NETCDF_FILE = Path(
@@ -33,7 +33,7 @@ NODATA = -9999.0
 
 
 # ============================================================
-# CHECK INPUTS
+# START
 # ============================================================
 
 print("=" * 70)
@@ -44,6 +44,11 @@ print(f"NetCDF : {NETCDF_FILE}")
 print(f"Boundary: {FARS_GEOJSON}")
 print(f"Output : {OUTPUT_FILE}")
 print()
+
+
+# ============================================================
+# CHECK INPUT FILES
+# ============================================================
 
 if not NETCDF_FILE.exists():
     print("ERROR: NetCDF file does not exist.")
@@ -67,88 +72,122 @@ print("Reading NetCDF...")
 with Dataset(NETCDF_FILE, "r") as nc:
 
     if VARIABLE_NAME not in nc.variables:
-        print(f"ERROR: Variable '{VARIABLE_NAME}' was not found.")
-        print("Available variables:")
+        print(f"ERROR: Variable '{VARIABLE_NAME}' not found.")
 
+        print("Available variables:")
         for name in nc.variables.keys():
             print(f"  - {name}")
 
         sys.exit(1)
 
     if "lat" not in nc.variables:
-        print("ERROR: latitude variable 'lat' not found.")
+        print("ERROR: lat variable not found.")
         sys.exit(1)
 
     if "lon" not in nc.variables:
-        print("ERROR: longitude variable 'lon' not found.")
+        print("ERROR: lon variable not found.")
         sys.exit(1)
 
-    lat = np.asarray(nc.variables["lat"][:], dtype=np.float64)
-    lon = np.asarray(nc.variables["lon"][:], dtype=np.float64)
+    lat = np.asarray(
+        nc.variables["lat"][:],
+        dtype=np.float64
+    )
+
+    lon = np.asarray(
+        nc.variables["lon"][:],
+        dtype=np.float64
+    )
 
     fwi_var = nc.variables[VARIABLE_NAME]
 
-    print(f"Variable : {VARIABLE_NAME}")
+    print(f"Variable  : {VARIABLE_NAME}")
     print(f"Dimensions: {fwi_var.dimensions}")
-    print(f"Latitude : {lat.size} cells")
-    print(f"Longitude: {lon.size} cells")
+    print(f"Latitude  : {lat.size} cells")
+    print(f"Longitude : {lon.size} cells")
 
     # --------------------------------------------------------
-    # Read FWI
+    # READ DATA
     # --------------------------------------------------------
 
-    data = fwi_var[:]
+    raw = fwi_var[:]
 
-    # Remove time dimension
+    print(f"Original array shape: {raw.shape}")
+
+    # Convert masked array safely
+    if np.ma.isMaskedArray(raw):
+        data = raw.filled(np.nan).astype(np.float32)
+    else:
+        data = np.asarray(raw, dtype=np.float32)
+
+    # --------------------------------------------------------
+    # REMOVE TIME DIMENSION
+    # --------------------------------------------------------
+
     if data.ndim == 3:
+
         if data.shape[0] != 1:
-            print("ERROR: Expected one time dimension.")
+            print(
+                "ERROR: Expected exactly one time slice."
+            )
             print(f"Shape: {data.shape}")
             sys.exit(1)
 
-        data = data[0]
+        data = data[0, :, :]
 
-    elif data.ndim != 2:
-        print("ERROR: Unexpected FWI dimensions.")
+    elif data.ndim == 2:
+
+        pass
+
+    else:
+
+        print("ERROR: Unexpected FWI array dimensions.")
         print(f"Shape: {data.shape}")
         sys.exit(1)
 
-    data = np.asarray(data, dtype=np.float32)
+    print(f"After time removal: {data.shape}")
 
     # --------------------------------------------------------
-    # Handle masked values
+    # VERIFY DIMENSIONS
     # --------------------------------------------------------
 
-    if np.ma.isMaskedArray(fwi_var[:]):
-        raw = fwi_var[:]
-        data = np.asarray(raw.filled(np.nan), dtype=np.float32)
+    expected_shape = (lat.size, lon.size)
+
+    if data.shape != expected_shape:
+
+        print("ERROR: FWI array shape does not match lat/lon.")
+
+        print(f"Expected: {expected_shape}")
+        print(f"Actual  : {data.shape}")
+
+        sys.exit(1)
 
     # --------------------------------------------------------
-    # Handle FillValue / missing_value
+    # HANDLE FILL VALUE WITHOUT missing_value WARNING
     # --------------------------------------------------------
 
-    fill_values = []
+    fill_value = None
 
     if hasattr(fwi_var, "_FillValue"):
-        fill_values.append(float(fwi_var._FillValue))
 
-    if hasattr(fwi_var, "missing_value"):
         try:
-            fill_values.append(float(fwi_var.missing_value))
+            fill_value = float(fwi_var._FillValue)
         except Exception:
-            pass
+            fill_value = None
 
-    for fill_value in fill_values:
+    if fill_value is not None:
+
+        print(f"FillValue: {fill_value}")
+
         data[data == fill_value] = np.nan
 
     # --------------------------------------------------------
-    # Basic validation
+    # VALID DATA
     # --------------------------------------------------------
 
     valid = np.isfinite(data)
 
     if not np.any(valid):
-        print("ERROR: No valid FWI values were found.")
+        print("ERROR: No valid FWI pixels found.")
         sys.exit(1)
 
     print()
@@ -156,65 +195,61 @@ with Dataset(NETCDF_FILE, "r") as nc:
     print(f"  Minimum: {float(np.nanmin(data)):.4f}")
     print(f"  Maximum: {float(np.nanmax(data)):.4f}")
     print(f"  Mean   : {float(np.nanmean(data)):.4f}")
+
+    # --------------------------------------------------------
+    # GRID RESOLUTION
+    # --------------------------------------------------------
+
+    if lat.size < 2 or lon.size < 2:
+        print("ERROR: Invalid grid.")
+        sys.exit(1)
+
+    dy = float(np.median(np.abs(np.diff(lat))))
+    dx = float(np.median(np.abs(np.diff(lon))))
+
     print()
-
-    # --------------------------------------------------------
-    # Check grid
-    # --------------------------------------------------------
-
-    if lat.size < 2:
-        print("ERROR: Not enough latitude values.")
-        sys.exit(1)
-
-    if lon.size < 2:
-        print("ERROR: Not enough longitude values.")
-        sys.exit(1)
-
-    lat_diff = np.diff(lat)
-    lon_diff = np.diff(lon)
-
-    dy = float(np.median(np.abs(lat_diff)))
-    dx = float(np.median(np.abs(lon_diff)))
-
-    if dx <= 0 or dy <= 0:
-        print("ERROR: Invalid latitude/longitude spacing.")
-        sys.exit(1)
-
     print(f"Latitude spacing : {dy}")
     print(f"Longitude spacing: {dx}")
 
     # --------------------------------------------------------
-    # Ensure longitude increases west -> east
+    # LONGITUDE ORDER
     # --------------------------------------------------------
 
     if lon[0] > lon[-1]:
+
+        print("Reversing longitude direction.")
+
         lon = lon[::-1]
+
         data = data[:, ::-1]
 
     # --------------------------------------------------------
-    # Ensure latitude increases south -> north before writing.
-    # GeoTIFF requires row 0 to represent the northern edge.
+    # LATITUDE ORDER
     # --------------------------------------------------------
 
     if lat[0] > lat[-1]:
-        lat = lat[::-1]
+
+        print("Latitude is north -> south.")
+
+        # Already compatible with GeoTIFF row order.
+        # No flip required.
+
+    else:
+
+        print("Latitude is south -> north.")
+
+        # GeoTIFF requires row 0 at northern edge.
         data = data[::-1, :]
 
-    # At this point:
-    # latitude = south -> north
-    # longitude = west -> east
-    #
-    # GeoTIFF rows must be north -> south,
-    # therefore flip the raster vertically.
-
-    data = data[::-1, :]
-
     # --------------------------------------------------------
-    # Calculate raster bounds
+    # CALCULATE TRANSFORM
     # --------------------------------------------------------
 
     west = float(lon[0] - dx / 2.0)
-    north = float(lat[-1] + dy / 2.0)
+
+    north = float(
+        max(lat[0], lat[-1]) + dy / 2.0
+    )
 
     transform = from_origin(
         west,
@@ -234,18 +269,24 @@ with Dataset(NETCDF_FILE, "r") as nc:
 
 
 # ============================================================
-# WRITE TEMPORARY GLOBAL GEOTIFF
+# TEMPORARY GLOBAL TIFF
 # ============================================================
 
 TEMP_FILE = OUTPUT_DIR / "_temp_geos5_fwi_global.tif"
 
 print()
-print("Writing temporary GeoTIFF...")
+print("Writing temporary global GeoTIFF...")
+
+write_data = np.where(
+    np.isfinite(data),
+    data,
+    NODATA
+).astype(np.float32)
 
 profile = {
     "driver": "GTiff",
-    "height": data.shape[0],
-    "width": data.shape[1],
+    "height": write_data.shape[0],
+    "width": write_data.shape[1],
     "count": 1,
     "dtype": "float32",
     "crs": CRS,
@@ -257,17 +298,15 @@ profile = {
     "BIGTIFF": "IF_SAFER",
 }
 
-write_data = np.where(
-    np.isfinite(data),
-    data,
-    NODATA
-).astype(np.float32)
+with rasterio.open(
+    TEMP_FILE,
+    "w",
+    **profile
+) as dst:
 
-with rasterio.open(TEMP_FILE, "w", **profile) as dst:
     dst.write(write_data, 1)
 
-print(f"Temporary file created:")
-print(TEMP_FILE)
+print(f"Temporary TIFF created: {TEMP_FILE}")
 
 
 # ============================================================
@@ -280,28 +319,39 @@ print("Reading Fars boundary...")
 fars = gpd.read_file(FARS_GEOJSON)
 
 if fars.empty:
-    print("ERROR: fars.geojson contains no geometry.")
+    print("ERROR: fars.geojson is empty.")
     sys.exit(1)
 
 print(f"Features: {len(fars)}")
 
 if fars.crs is None:
-    print("WARNING: fars.geojson has no CRS.")
+
+    print("WARNING: Boundary CRS is undefined.")
     print("Assuming EPSG:4326.")
+
     fars = fars.set_crs(CRS)
 
 elif fars.crs.to_string() != CRS:
-    print(f"Reprojecting boundary from {fars.crs} to {CRS}.")
+
+    print(
+        f"Reprojecting boundary "
+        f"from {fars.crs} to {CRS}"
+    )
+
     fars = fars.to_crs(CRS)
 
-geometries = [
-    geom.__geo_interface__
-    for geom in fars.geometry
-    if geom is not None and not geom.is_empty
-]
+
+geometries = []
+
+for geom in fars.geometry:
+
+    if geom is not None and not geom.is_empty:
+        geometries.append(geom.__geo_interface__)
+
 
 if not geometries:
-    print("ERROR: No valid geometries found in fars.geojson.")
+
+    print("ERROR: No valid geometries found.")
     sys.exit(1)
 
 
@@ -346,7 +396,7 @@ with rasterio.open(TEMP_FILE) as src:
 
 
 # ============================================================
-# REMOVE TEMP FILE
+# DELETE TEMP FILE
 # ============================================================
 
 if TEMP_FILE.exists():
@@ -354,7 +404,7 @@ if TEMP_FILE.exists():
 
 
 # ============================================================
-# VERIFY OUTPUT
+# VERIFY FINAL TIFF
 # ============================================================
 
 print()
@@ -364,10 +414,18 @@ with rasterio.open(OUTPUT_FILE) as src:
 
     result = src.read(1)
 
-    valid = result != src.nodata
+    valid = (
+        np.isfinite(result)
+        & (result != src.nodata)
+    )
 
     if not np.any(valid):
-        print("ERROR: Final TIFF contains no valid pixels.")
+
+        print(
+            "ERROR: Final TIFF contains "
+            "no valid pixels."
+        )
+
         sys.exit(1)
 
     print()
@@ -384,9 +442,21 @@ with rasterio.open(OUTPUT_FILE) as src:
 
     print()
     print("Final FWI statistics:")
-    print(f"  Minimum: {float(result[valid].min()):.4f}")
-    print(f"  Maximum: {float(result[valid].max()):.4f}")
-    print(f"  Mean   : {float(result[valid].mean()):.4f}")
+
+    print(
+        f"  Minimum: "
+        f"{float(result[valid].min()):.4f}"
+    )
+
+    print(
+        f"  Maximum: "
+        f"{float(result[valid].max()):.4f}"
+    )
+
+    print(
+        f"  Mean   : "
+        f"{float(result[valid].mean()):.4f}"
+    )
 
 print()
 print("Clipped GEOS-5 FWI GeoTIFF is ready.")

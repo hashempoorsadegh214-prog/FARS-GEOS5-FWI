@@ -1,0 +1,159 @@
+name: Inspect NASA GEOS-5 NetCDF
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-netcdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install NetCDF tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install xarray netCDF4 h5netcdf numpy
+
+      - name: Find tomorrow forecast
+        run: |
+          set -euo pipefail
+
+          FILE="data/raw/fwi/FWI.GEOS-5.Daily.Default.2026091700.20260920.nc"
+
+          echo "=============================================="
+          echo "NASA GEOS-5 TOMORROW FORECAST"
+          echo "=============================================="
+
+          if [ ! -f "$FILE" ]; then
+            echo
+            echo "ERROR: NetCDF file not found:"
+            echo "$FILE"
+            exit 1
+          fi
+
+          echo
+          echo "File:"
+          echo "$FILE"
+
+          echo
+          echo "Size:"
+          ls -lh "$FILE"
+
+      - name: Inspect NetCDF structure
+        run: |
+          set -euo pipefail
+
+          FILE="data/raw/fwi/FWI.GEOS-5.Daily.Default.2026091700.20260920.nc"
+
+          python - <<'PY'
+          import xarray as xr
+          import numpy as np
+
+          file = "data/raw/fwi/FWI.GEOS-5.Daily.Default.2026091700.20260920.nc"
+
+          print()
+          print("=" * 80)
+          print("OPENING NASA GEOS-5 NETCDF")
+          print("=" * 80)
+
+          ds = xr.open_dataset(file)
+
+          print()
+          print("DATASET")
+          print("=" * 80)
+          print(ds)
+
+          print()
+          print("=" * 80)
+          print("DIMENSIONS")
+          print("=" * 80)
+
+          for name, size in ds.sizes.items():
+              print(f"{name}: {size}")
+
+          print()
+          print("=" * 80)
+          print("COORDINATES")
+          print("=" * 80)
+
+          for name in ds.coords:
+              var = ds[name]
+
+              print()
+              print(f"Coordinate: {name}")
+              print(f"Dimensions: {var.dims}")
+              print(f"Shape: {var.shape}")
+              print(f"Dtype: {var.dtype}")
+              print(f"Attributes: {dict(var.attrs)}")
+
+              values = np.asarray(var.values).ravel()
+
+              if values.size > 0:
+                  print(f"First value: {values[0]}")
+                  print(f"Last value: {values[-1]}")
+
+          print()
+          print("=" * 80)
+          print("DATA VARIABLES")
+          print("=" * 80)
+
+          for name in ds.data_vars:
+              var = ds[name]
+
+              print()
+              print(f"Variable: {name}")
+              print(f"Dimensions: {var.dims}")
+              print(f"Shape: {var.shape}")
+              print(f"Dtype: {var.dtype}")
+              print(f"Attributes: {dict(var.attrs)}")
+
+              try:
+                  values = var.values
+
+                  finite = np.isfinite(values)
+
+                  if finite.any():
+                      valid = values[finite]
+
+                      print(f"Minimum: {float(valid.min())}")
+                      print(f"Maximum: {float(valid.max())}")
+                      print(f"Mean: {float(valid.mean())}")
+
+                      print(
+                          "Finite cells: "
+                          f"{int(finite.sum())}"
+                      )
+
+                      print(
+                          "Total cells: "
+                          f"{values.size}"
+                      )
+
+              except Exception as exc:
+                  print(f"Statistics unavailable: {exc}")
+
+          print()
+          print("=" * 80)
+          print("GLOBAL ATTRIBUTES")
+          print("=" * 80)
+
+          for key, value in ds.attrs.items():
+              print(f"{key}: {value}")
+
+          ds.close()
+
+          print()
+          print("=" * 80)
+          print("INSPECTION COMPLETE")
+          print("=" * 80)
+          PY

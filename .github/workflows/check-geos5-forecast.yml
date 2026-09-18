@@ -1,0 +1,17 @@
+name: Check NASA GEOS-5 Forecast
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-geos5-forecast:
+    name: Check NASA GEOS-5 Forecast Directory
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check NASA forecast directory
+        run: |
+          python3 scripts/check_geos5_forecast.py

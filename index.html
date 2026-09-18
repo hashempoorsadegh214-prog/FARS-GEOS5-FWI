@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>نقشه FWI ناسا GEOS-5 | استان فارس</title>
+  <title>نقشه شاخص خطر حریق FWI - NASA GEOS-5</title>
 
   <!-- Leaflet -->
   <link
@@ -13,830 +13,771 @@
   />
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     html,
     body {
-      width: 100%;
-      height: 100%;
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
       font-family: Tahoma, Arial, sans-serif;
+      background: #f5f5f5;
     }
 
     #map {
       width: 100%;
       height: 100%;
-      background: #e9eef2;
     }
 
-    /* پنل اصلی */
     .info-panel {
       position: absolute;
-      z-index: 1000;
       top: 15px;
       right: 15px;
-
+      z-index: 1000;
       width: 310px;
-      max-width: calc(100% - 30px);
-
       background: rgba(255, 255, 255, 0.96);
-      border-radius: 14px;
-
-      padding: 15px 17px;
-
-      box-shadow:
-        0 4px 18px rgba(0, 0, 0, 0.22);
-
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 3px 15px rgba(0, 0, 0, 0.25);
       line-height: 1.8;
     }
 
-    .info-panel h1 {
-      margin: 0;
+    .title {
       font-size: 19px;
-      color: #222;
+      font-weight: bold;
+      color: #8b0000;
+      margin-bottom: 4px;
     }
 
-    .info-panel .subtitle {
-      margin-top: 2px;
-      color: #555;
+    .subtitle {
+      font-size: 14px;
+      color: #444;
+      margin-bottom: 10px;
+    }
+
+    .status {
+      padding: 8px 10px;
+      border-radius: 7px;
+      background: #eeeeee;
+      margin-bottom: 10px;
       font-size: 13px;
     }
 
-    .date {
-      margin-top: 8px;
-      padding: 7px 9px;
-
-      background: #f3f5f7;
-      border-radius: 8px;
-
-      font-size: 13px;
-    }
-
-    .resolution {
-      margin-top: 7px;
-      font-size: 12px;
-      color: #555;
-    }
-
-    /* راهنمای رنگ */
     .legend {
-      margin-top: 12px;
-      border-top: 1px solid #ddd;
-      padding-top: 10px;
+      margin-top: 10px;
     }
 
     .legend-title {
       font-weight: bold;
-      margin-bottom: 5px;
-      font-size: 13px;
+      margin-bottom: 6px;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
       margin: 4px 0;
-      font-size: 12px;
-    }
-
-    .legend-color {
-      width: 25px;
-      height: 15px;
-
-      margin-left: 7px;
-
-      border-radius: 3px;
-      border: 1px solid rgba(0, 0, 0, 0.2);
-
-      flex-shrink: 0;
-    }
-
-    /* نمایش مقدار FWI */
-    .value-panel {
-      position: absolute;
-      z-index: 1000;
-
-      left: 15px;
-      bottom: 25px;
-
-      min-width: 170px;
-
-      background: rgba(255, 255, 255, 0.96);
-
-      border-radius: 11px;
-
-      padding: 10px 14px;
-
-      box-shadow:
-        0 3px 15px rgba(0, 0, 0, 0.2);
-
-      text-align: center;
-
       font-size: 13px;
     }
 
-    .value-number {
-      font-size: 22px;
-      font-weight: bold;
-      margin-top: 3px;
+    .legend-color {
+      width: 24px;
+      height: 18px;
+      border-radius: 4px;
+      margin-left: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
     }
 
-    .loading {
-      color: #555;
+    .pixel-info {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+      min-width: 190px;
+      background: rgba(255, 255, 255, 0.96);
+      border-radius: 10px;
+      padding: 10px 14px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      direction: rtl;
+      font-size: 13px;
     }
 
-    .error {
-      color: #b71c1c;
+    .leaflet-control-layers {
+      direction: rtl;
     }
 
-    /* موبایل */
-    @media (max-width: 600px) {
-      .info-panel {
-        top: 10px;
-        right: 10px;
-        width: 275px;
-        padding: 12px;
-      }
-
-      .info-panel h1 {
-        font-size: 16px;
-      }
-
-      .value-panel {
-        left: 10px;
-        bottom: 20px;
-      }
+    .leaflet-popup-content {
+      direction: rtl;
+      text-align: right;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- نقشه -->
-  <div id="map"></div>
+<div id="map"></div>
 
-  <!-- پنل اطلاعات -->
-  <div class="info-panel">
+<div class="info-panel">
 
-    <h1>
-      شاخص خطر حریق FWI
-    </h1>
+  <div class="title">
+    شاخص خطر حریق FWI
+  </div>
 
-    <div class="subtitle">
-      NASA GEOS-5 — استان فارس
+  <div class="subtitle">
+    NASA GEOS-5 — استان فارس
+  </div>
+
+  <div id="status" class="status">
+    در حال بارگذاری FWI...
+  </div>
+
+  <div>
+    <strong>تاریخ پیش‌بینی:</strong><br>
+    ۲۰ سپتامبر ۲۰۲۶
+    /
+    ۲۹ شهریور ۱۴۰۵
+  </div>
+
+  <div>
+    <strong>تفکیک مکانی:</strong><br>
+    ۰٫۲۵° × ۰٫۳۱۲۵°
+  </div>
+
+  <div class="legend">
+
+    <div class="legend-title">
+      طبقات FWI
     </div>
 
-    <div class="date">
-      <b>تاریخ پیش‌بینی:</b>
-      ۲۰ سپتامبر ۲۰۲۶
-      <br />
-      <span style="color:#666;">
-        ۲۹ شهریور ۱۴۰۵
-      </span>
+    <div class="legend-item">
+      <div
+        class="legend-color"
+        style="background:#2E7D32"
+      ></div>
+      کم — کمتر از ۱۰
     </div>
 
-    <div class="resolution">
-      <b>تفکیک مکانی:</b>
-      ۰٫۲۵° × ۰٫۳۱۲۵°
+    <div class="legend-item">
+      <div
+        class="legend-color"
+        style="background:#F9D835"
+      ></div>
+      متوسط — ۱۰ تا کمتر از ۲۰
     </div>
 
-    <!-- راهنمای رنگ -->
-    <div class="legend">
+    <div class="legend-item">
+      <div
+        class="legend-color"
+        style="background:#FB8C00"
+      ></div>
+      زیاد — ۲۰ تا کمتر از ۳۰
+    </div>
 
-      <div class="legend-title">
-        طبقات FWI
-      </div>
+    <div class="legend-item">
+      <div
+        class="legend-color"
+        style="background:#E53935"
+      ></div>
+      خیلی زیاد — ۳۰ تا کمتر از ۴۰
+    </div>
 
-      <div class="legend-item">
-        <span
-          class="legend-color"
-          style="background:#2E7D32;"
-        ></span>
-        کم — ۰ تا ۱۰
-      </div>
-
-      <div class="legend-item">
-        <span
-          class="legend-color"
-          style="background:#F9D835;"
-        ></span>
-        متوسط — ۱۰ تا ۲۰
-      </div>
-
-      <div class="legend-item">
-        <span
-          class="legend-color"
-          style="background:#FB8C00;"
-        ></span>
-        زیاد — ۲۰ تا ۳۰
-      </div>
-
-      <div class="legend-item">
-        <span
-          class="legend-color"
-          style="background:#E53935;"
-        ></span>
-        خیلی زیاد — ۳۰ تا ۴۰
-      </div>
-
-      <div class="legend-item">
-        <span
-          class="legend-color"
-          style="background:#880E4F;"
-        ></span>
-        بحرانی — ۴۰ و بیشتر
-      </div>
-
+    <div class="legend-item">
+      <div
+        class="legend-color"
+        style="background:#880E4F"
+      ></div>
+      بحرانی — ۴۰ و بیشتر
     </div>
 
   </div>
 
-  <!-- مقدار FWI -->
-  <div
-    id="valuePanel"
-    class="value-panel"
-  >
-    <div id="valueTitle">
-      وضعیت نقشه
-    </div>
+</div>
 
-    <div
-      id="valueNumber"
-      class="value-number loading"
-    >
-      در حال بارگذاری...
-    </div>
-  </div>
+<div class="pixel-info" id="pixelInfo">
+  روی نقشه کلیک کنید
+</div>
 
 
-  <!-- Leaflet -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-  </script>
+<!-- ========================================================= -->
+<!-- Leaflet -->
+<!-- ========================================================= -->
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
 
 
-  <!-- GeoRaster -->
-  <script
-    src="https://unpkg.com/georaster@1.6.0/dist/georaster.browser.min.js">
-  </script>
+<!-- ========================================================= -->
+<!-- georaster -->
+<!-- ========================================================= -->
+
+<script
+  src="https://unpkg.com/georaster@1.6.0/dist/georaster.browser.min.js">
+</script>
 
 
-  <!-- GeoRaster Layer -->
-  <script
-    src="https://unpkg.com/georaster-layer-for-leaflet@4.0.0/dist/georaster-layer-for-leaflet.min.js">
-  </script>
+<!-- ========================================================= -->
+<!-- georaster-layer-for-leaflet -->
+<!-- ========================================================= -->
+
+<script
+  src="https://unpkg.com/georaster-layer-for-leaflet@4.0.0/dist/georaster-layer-for-leaflet.min.js">
+</script>
 
 
-  <script>
+<script>
 
-    /* ============================================================
-       تنظیمات اصلی
-    ============================================================ */
-
-    const TIFF_URL =
-      "https://raw.githubusercontent.com/" +
-      "hashempoorsadegh214-prog/FARS-GEOS5-FWI/" +
-      "main/data/processed/fwi/" +
-      "FWI_GEOS5_Fars_2026-09-20.tif";
+"use strict";
 
 
-    const FARS_GEOJSON_URL =
-      "https://raw.githubusercontent.com/" +
-      "hashempoorsadegh214-prog/FARS-GEOS5-FWI/" +
-      "main/fars.geojson";
+/* ============================================================
+   تنظیمات اصلی
+   ============================================================ */
+
+const FWI_URL =
+  "https://raw.githubusercontent.com/hashempoorsadegh214-prog/FARS-GEOS5-FWI/main/data/processed/fwi/FWI_GEOS5_Fars_2026-09-20.tif";
+
+const FARS_URL =
+  "https://raw.githubusercontent.com/hashempoorsadegh214-prog/FARS-GEOS5-FWI/main/fars.geojson";
 
 
-    /* ============================================================
-       ساخت نقشه
-    ============================================================ */
+/* ============================================================
+   وضعیت
+   ============================================================ */
 
-    const map = L.map("map", {
+const statusBox =
+  document.getElementById("status");
 
-      center: [
-        29.60,
-        53.00
-      ],
-
-      zoom: 7,
-
-      minZoom: 6,
-
-      maxZoom: 13
-
-    });
+const pixelInfo =
+  document.getElementById("pixelInfo");
 
 
-    /* ============================================================
-       نقشه پایه
-    ============================================================ */
+/* ============================================================
+   نقشه
+   ============================================================ */
 
-    L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        maxZoom: 19,
-
-        attribution:
-          "&copy; OpenStreetMap contributors"
-      }
-    ).addTo(map);
+const map = L.map("map", {
+  center: [29.6, 53.0],
+  zoom: 7,
+  minZoom: 6,
+  maxZoom: 13,
+  zoomControl: true
+});
 
 
-    /* ============================================================
-       تابع تعیین رنگ FWI
-    ============================================================ */
+/* ============================================================
+   نقشه پایه
+   ============================================================ */
 
-    function getFWIColor(value) {
+const osm = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom: 19,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }
+);
 
-      if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-      ) {
-        return null;
-      }
-
-
-      if (value < 10) {
-
-        return "#2E7D32";
-
-      }
+osm.addTo(map);
 
 
-      if (value < 20) {
+/* ============================================================
+   کنترل لایه‌ها
+   ============================================================ */
 
-        return "#F9D835";
+const overlays = {};
 
-      }
-
-
-      if (value < 30) {
-
-        return "#FB8C00";
-
-      }
-
-
-      if (value < 40) {
-
-        return "#E53935";
-
-      }
+L.control.layers(
+  {
+    "OpenStreetMap": osm
+  },
+  overlays,
+  {
+    collapsed: true
+  }
+).addTo(map);
 
 
-      return "#880E4F";
+/* ============================================================
+   رنگ‌بندی FWI
+   ============================================================ */
 
+function fwiColor(value) {
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  if (value < 10) {
+    return "#2E7D32";
+  }
+
+  if (value < 20) {
+    return "#F9D835";
+  }
+
+  if (value < 30) {
+    return "#FB8C00";
+  }
+
+  if (value < 40) {
+    return "#E53935";
+  }
+
+  return "#880E4F";
+}
+
+
+/* ============================================================
+   متن طبقه خطر
+   ============================================================ */
+
+function fwiClass(value) {
+
+  if (value === null || !Number.isFinite(value)) {
+    return "بدون داده";
+  }
+
+  if (value < 10) {
+    return "کم";
+  }
+
+  if (value < 20) {
+    return "متوسط";
+  }
+
+  if (value < 30) {
+    return "زیاد";
+  }
+
+  if (value < 40) {
+    return "خیلی زیاد";
+  }
+
+  return "بحرانی";
+}
+
+
+/* ============================================================
+   بررسی کتابخانه‌ها
+   ============================================================ */
+
+console.log(
+  "Leaflet:",
+  typeof L
+);
+
+console.log(
+  "parseGeoraster:",
+  typeof parseGeoraster
+);
+
+console.log(
+  "GeoRasterLayer:",
+  typeof GeoRasterLayer
+);
+
+
+if (typeof parseGeoraster !== "function") {
+
+  statusBox.innerHTML =
+    "خطا: کتابخانه GeoRaster بارگذاری نشده است.";
+
+  throw new Error(
+    "parseGeoraster is not defined"
+  );
+}
+
+
+if (typeof GeoRasterLayer !== "function") {
+
+  statusBox.innerHTML =
+    "خطا: کتابخانه GeoRasterLayer بارگذاری نشده است.";
+
+  throw new Error(
+    "GeoRasterLayer is not defined"
+  );
+}
+
+
+/* ============================================================
+   مرز استان فارس
+   ============================================================ */
+
+fetch(FARS_URL)
+
+  .then(function(response) {
+
+    if (!response.ok) {
+      throw new Error(
+        "خطا در دریافت مرز فارس: HTTP " +
+        response.status
+      );
     }
 
+    return response.json();
+  })
 
-    /* ============================================================
-       تبدیل مقدار به طبقه
-    ============================================================ */
+  .then(function(geojson) {
 
-    function getFWIClass(value) {
-
-      if (
-        value === null ||
-        value === undefined ||
-        !Number.isFinite(value)
-      ) {
-
-        return "بدون داده";
-
-      }
-
-
-      if (value < 10) {
-
-        return "کم";
-
-      }
-
-
-      if (value < 20) {
-
-        return "متوسط";
-
-      }
-
-
-      if (value < 30) {
-
-        return "زیاد";
-
-      }
-
-
-      if (value < 40) {
-
-        return "خیلی زیاد";
-
-      }
-
-
-      return "بحرانی";
-
-    }
-
-
-    /* ============================================================
-       عناصر رابط کاربری
-    ============================================================ */
-
-    const valueTitle =
-      document.getElementById("valueTitle");
-
-    const valueNumber =
-      document.getElementById("valueNumber");
-
-
-    /* ============================================================
-       بارگذاری TIFF
-    ============================================================ */
-
-    fetch(TIFF_URL)
-
-      .then(function(response) {
-
-        if (!response.ok) {
-
-          throw new Error(
-            "خطا در دریافت TIFF. HTTP " +
-            response.status
-          );
-
+    const farsLayer =
+      L.geoJSON(
+        geojson,
+        {
+          style: {
+            color: "#8B0000",
+            weight: 2,
+            fill: false,
+            opacity: 1
+          }
         }
+      ).addTo(map);
 
-        return response.arrayBuffer();
+    overlays["مرز استان فارس"] =
+      farsLayer;
 
-      })
+    farsLayer.bringToFront();
+
+    try {
+
+      map.fitBounds(
+        farsLayer.getBounds(),
+        {
+          padding: [20, 20]
+        }
+      );
+
+    } catch (e) {
+
+      console.warn(
+        "Fit bounds failed:",
+        e
+      );
+    }
+
+  })
+
+  .catch(function(error) {
+
+    console.error(
+      "Fars boundary error:",
+      error
+    );
+
+  });
 
 
-      .then(function(arrayBuffer) {
+/* ============================================================
+   دریافت TIFF
+   ============================================================ */
 
-        return parseGeoraster(arrayBuffer);
+statusBox.innerHTML =
+  "در حال دریافت فایل FWI...";
 
-      })
+
+fetch(FWI_URL)
+
+  .then(function(response) {
+
+    console.log(
+      "FWI HTTP status:",
+      response.status
+    );
+
+    if (!response.ok) {
+
+      throw new Error(
+        "HTTP " +
+        response.status +
+        " - دریافت TIFF ناموفق بود."
+      );
+
+    }
+
+    return response.arrayBuffer();
+
+  })
+
+  .then(function(arrayBuffer) {
+
+    console.log(
+      "FWI file size:",
+      arrayBuffer.byteLength,
+      "bytes"
+    );
+
+    statusBox.innerHTML =
+      "در حال پردازش رستر FWI...";
+
+    return parseGeoraster(
+      arrayBuffer
+    );
+
+  })
+
+  .then(function(georaster) {
+
+    console.log(
+      "GeoRaster:",
+      georaster
+    );
+
+    console.log(
+      "Width:",
+      georaster.width
+    );
+
+    console.log(
+      "Height:",
+      georaster.height
+    );
+
+    console.log(
+      "Resolution:",
+      georaster.pixelWidth,
+      georaster.pixelHeight
+    );
+
+    console.log(
+      "NoData:",
+      georaster.noDataValue
+    );
 
 
-      .then(function(georaster) {
+    /* ========================================================
+       ساخت لایه FWI
+       ======================================================== */
 
-        console.log(
-          "GeoRaster loaded:",
-          georaster
+    const fwiLayer =
+      new GeoRasterLayer({
+
+        georaster: georaster,
+
+        opacity: 0.78,
+
+        resolution: 256,
+
+        pixelValuesToColorFn:
+          function(pixelValues) {
+
+            if (
+              !pixelValues ||
+              pixelValues.length === 0
+            ) {
+              return null;
+            }
+
+            const value =
+              Number(pixelValues[0]);
+
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+
+            if (
+              georaster.noDataValue !== undefined &&
+              value === georaster.noDataValue
+            ) {
+              return null;
+            }
+
+            return fwiColor(value);
+          }
+
+      });
+
+
+    /* ========================================================
+       اضافه کردن به نقشه
+       ======================================================== */
+
+    fwiLayer.addTo(map);
+
+    overlays["FWI — NASA GEOS-5"] =
+      fwiLayer;
+
+
+    /* ========================================================
+       زوم روی محدوده رستر
+       ======================================================== */
+
+    try {
+
+      const bounds =
+        fwiLayer.getBounds();
+
+      if (bounds &&
+          bounds.isValid()) {
+
+        map.fitBounds(
+          bounds,
+          {
+            padding: [20, 20]
+          }
         );
 
+      }
 
-        /* ======================================================
-           ساخت لایه رستری
-        ====================================================== */
+    } catch (e) {
 
-        const fwiLayer =
-          new GeoRasterLayer({
+      console.warn(
+        "Raster bounds error:",
+        e
+      );
 
-            georaster: georaster,
-
-            opacity: 0.75,
-
-            resolution: 256,
-
-            pixelValuesToColorFn:
-              function(values) {
-
-                if (
-                  !values ||
-                  values.length === 0
-                ) {
-
-                  return null;
-
-                }
+    }
 
 
-                const value = values[0];
+    /* ========================================================
+       وضعیت موفق
+       ======================================================== */
+
+    statusBox.innerHTML =
+      "✓ FWI با موفقیت بارگذاری شد";
+
+    statusBox.style.background =
+      "#E8F5E9";
+
+    statusBox.style.color =
+      "#1B5E20";
 
 
-                const color =
-                  getFWIColor(value);
+    /* ========================================================
+       کلیک روی نقشه
+       ======================================================== */
+
+    map.on(
+      "click",
+      function(event) {
+
+        try {
+
+          const lat =
+            event.latlng.lat;
+
+          const lon =
+            event.latlng.lng;
 
 
-                if (!color) {
+          const originX =
+            georaster.xmin;
 
-                  return null;
-
-                }
-
-
-                return color;
-
-              }
-
-          });
+          const originY =
+            georaster.ymax;
 
 
-        /* اضافه کردن لایه */
+          const pixelWidth =
+            georaster.pixelWidth;
 
-        fwiLayer.addTo(map);
+          const pixelHeight =
+            georaster.pixelHeight;
 
 
-        /* ======================================================
-           زوم روی محدوده TIFF
-        ====================================================== */
+          const col =
+            Math.floor(
+              (lon - originX) /
+              pixelWidth
+            );
 
-        setTimeout(function() {
 
-          const bounds =
-            fwiLayer.getBounds();
+          const row =
+            Math.floor(
+              (originY - lat) /
+              Math.abs(pixelHeight)
+            );
 
 
           if (
-            bounds &&
-            bounds.isValid()
+            col < 0 ||
+            row < 0 ||
+            col >= georaster.width ||
+            row >= georaster.height
           ) {
 
-            map.fitBounds(
-              bounds,
-              {
-                padding: [
-                  30,
-                  30
-                ]
-              }
-            );
+            pixelInfo.innerHTML =
+              "خارج از محدوده FWI";
 
+            return;
           }
 
-        }, 500);
+
+          let value =
+            georaster.values[0][row][col];
 
 
-        /* ======================================================
-           وضعیت بارگذاری
-        ====================================================== */
+          if (
+            value === null ||
+            value === undefined ||
+            !Number.isFinite(
+              Number(value)
+            )
+          ) {
 
-        valueTitle.textContent =
-          "نقشه FWI آماده است";
+            pixelInfo.innerHTML =
+              "بدون داده";
 
-
-        valueNumber.textContent =
-          "روی نقشه کلیک کنید";
-
-
-        valueNumber.classList.remove(
-          "loading"
-        );
-
-
-        /* ======================================================
-           کلیک روی نقشه
-        ====================================================== */
-
-        map.on(
-          "click",
-          function(event) {
-
-            let value = null;
-
-
-            /*
-             * تبدیل مختصات جغرافیایی
-             * به موقعیت پیکسل رستر
-             */
-
-            try {
-
-              const lon =
-                event.latlng.lng;
-
-              const lat =
-                event.latlng.lat;
-
-
-              const originX =
-                georaster.xmin;
-
-              const originY =
-                georaster.ymax;
-
-
-              const pixelWidth =
-                georaster.pixelWidth;
-
-              const pixelHeight =
-                georaster.pixelHeight;
-
-
-              const col =
-                Math.floor(
-                  (lon - originX) /
-                  pixelWidth
-                );
-
-
-              const row =
-                Math.floor(
-                  (originY - lat) /
-                  pixelHeight
-                );
-
-
-              if (
-                row >= 0 &&
-                row < georaster.height &&
-                col >= 0 &&
-                col < georaster.width
-              ) {
-
-                value =
-                  georaster.values[0][row][col];
-
-              }
-
-            }
-            catch (error) {
-
-              console.error(
-                "Pixel read error:",
-                error
-              );
-
-            }
-
-
-            /* ==================================================
-               نمایش مقدار
-            ================================================== */
-
-            if (
-              value !== null &&
-              value !== undefined &&
-              Number.isFinite(value)
-            ) {
-
-              const numericValue =
-                Number(value);
-
-
-              const className =
-                getFWIClass(
-                  numericValue
-                );
-
-
-              valueTitle.innerHTML =
-                "مقدار FWI";
-
-
-              valueNumber.innerHTML =
-                numericValue.toFixed(2) +
-                "<br>" +
-                "<span style='font-size:12px;font-weight:normal'>" +
-                className +
-                "</span>";
-
-
-              valueNumber.style.color =
-                getFWIColor(
-                  numericValue
-                );
-
-            }
-            else {
-
-              valueTitle.textContent =
-                "مقدار FWI";
-
-
-              valueNumber.textContent =
-                "بدون داده";
-
-
-              valueNumber.style.color =
-                "#555";
-
-            }
-
+            return;
           }
 
-        );
 
-      })
-
-
-      /* ========================================================
-         خطای بارگذاری TIFF
-      ======================================================== */
-
-      .catch(function(error) {
-
-        console.error(
-          "FWI loading error:",
-          error
-        );
+          value =
+            Number(value);
 
 
-        valueTitle.textContent =
-          "خطا";
-
-
-        valueNumber.textContent =
-          "بارگذاری FWI انجام نشد";
-
-
-        valueNumber.classList.add(
-          "error"
-        );
-
-      });
-
-
-    /* ============================================================
-       مرز استان فارس
-    ============================================================ */
-
-    fetch(FARS_GEOJSON_URL)
-
-      .then(function(response) {
-
-        if (!response.ok) {
-
-          throw new Error(
-            "خطا در دریافت fars.geojson"
-          );
+          pixelInfo.innerHTML =
+            "<strong>FWI:</strong> " +
+            value.toFixed(2) +
+            "<br>" +
+            "<strong>طبقه:</strong> " +
+            fwiClass(value) +
+            "<br>" +
+            "<strong>عرض:</strong> " +
+            lat.toFixed(4) +
+            "<br>" +
+            "<strong>طول:</strong> " +
+            lon.toFixed(4);
 
         }
 
-        return response.json();
+        catch (error) {
 
-      })
-
-
-      .then(function(geojson) {
-
-        const boundary =
-          L.geoJSON(
-            geojson,
-            {
-
-              style: {
-
-                color: "#222222",
-
-                weight: 2,
-
-                opacity: 1,
-
-                fill: false
-
-              },
-
-              interactive: false
-
-            }
+          console.error(
+            "Pixel read error:",
+            error
           );
 
-
-        boundary.addTo(map);
-
-
-        /* زوم روی مرز استان */
-
-        const bounds =
-          boundary.getBounds();
-
-
-        if (
-          bounds &&
-          bounds.isValid()
-        ) {
-
-          map.fitBounds(
-            bounds,
-            {
-              padding: [
-                30,
-                30
-              ]
-            }
-          );
+          pixelInfo.innerHTML =
+            "خطا در خواندن مقدار FWI";
 
         }
 
-      })
+      }
+    );
+
+  })
+
+  .catch(function(error) {
+
+    console.error(
+      "FWI loading error:",
+      error
+    );
+
+    statusBox.innerHTML =
+      "✗ بارگذاری FWI انجام نشد";
+
+    statusBox.style.background =
+      "#FFEBEE";
+
+    statusBox.style.color =
+      "#B71C1C";
+
+  });
 
 
-      .catch(function(error) {
-
-        console.error(
-          "Fars boundary error:",
-          error
-        );
-
-      });
-
-
-  </script>
+</script>
 
 </body>
 </html>
